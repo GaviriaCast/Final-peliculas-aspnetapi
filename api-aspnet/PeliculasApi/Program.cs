@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PeliculasApi.Data;
+using PeliculasApi.Errors;
+using PeliculasApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +12,13 @@ builder.Services.AddDbContext<AppDbContext>(options => options
     .UseSqlite(builder.Configuration.GetConnectionString("Default"))
     .UseSeeding(SeedData.Seed)
     .UseAsyncSeeding(SeedData.SeedAsync));
+
+// Servicios de la aplicacion (inyeccion de dependencias). Scoped = una instancia por peticion.
+builder.Services.AddScoped<IMoviesService, MoviesService>();
+
+// Errores con la forma de NestJS: { message, error, statusCode }
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 builder.Services.AddControllers();
 
@@ -26,6 +35,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 // --- Pipeline HTTP ---
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

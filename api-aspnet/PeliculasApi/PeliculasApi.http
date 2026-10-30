@@ -1,5 +1,58 @@
 @baseUrl = http://localhost:5080/api
 
-### Listado de peliculas
+### Listado (pagina 1, 8 por pagina por defecto)
 GET {{baseUrl}}/movies
 Accept: application/json
+
+### Busqueda por nombre y paginacion
+GET {{baseUrl}}/movies?search=ma&page=1&limit=5
+Accept: application/json
+
+### Detalle
+GET {{baseUrl}}/movies/1
+Accept: application/json
+
+### Detalle que no existe (404)
+GET {{baseUrl}}/movies/9999
+Accept: application/json
+
+### Crear (201)
+POST {{baseUrl}}/movies
+Content-Type: application/json
+
+{
+  "nombre": "Dune: Parte Dos",
+  "imagen": "https://ejemplo.com/dune.jpg",
+  "director": "Denis Villeneuve",
+  "anio": 2024,
+  "genero": "Ciencia ficcion",
+  "sinopsis": "Paul Atreides se une a los Fremen."
+}
+
+### Crear con datos invalidos (400)
+POST {{baseUrl}}/movies
+Content-Type: application/json
+
+{
+  "imagen": "no-es-una-url",
+  "anio": 1500
+}
+
+### Editar solo algunos campos (200)
+PATCH {{baseUrl}}/movies/1
+Content-Type: application/json
+
+{
+  "genero": "Epica"
+}
+
+### Editar limpiando un campo opcional con null (asi lo hace Ionic)
+PATCH {{baseUrl}}/movies/1
+Content-Type: application/json
+
+{
+  "director": null
+}
+
+### Eliminar (200)
+DELETE {{baseUrl}}/movies/13
