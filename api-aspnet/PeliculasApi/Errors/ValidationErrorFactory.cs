@@ -23,8 +23,15 @@ public static class ValidationErrorFactory
             }
         }
 
-        var respuesta = ErrorResponse.Create(StatusCodes.Status400BadRequest, mensajes.Distinct().ToList());
-        return new BadRequestObjectResult(respuesta);
+        // Un id no numerico en la ruta (/movies/abc) en NestJS lo rechaza ParseIntPipe,
+        // que responde message como texto y no como arreglo
+        var soloRuta = context.ModelState
+            .Where(e => e.Value?.Errors.Count > 0)
+            .All(e => context.RouteData.Values.ContainsKey(e.Key));
+
+        object message = soloRuta && mensajes.Count > 0 ? mensajes[0] : mensajes.Distinct().ToList();
+
+        return new BadRequestObjectResult(ErrorResponse.Create(StatusCodes.Status400BadRequest, message));
     }
 
     /// <summary>

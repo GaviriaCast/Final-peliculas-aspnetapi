@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PeliculasApi.Data;
 using PeliculasApi.Errors;
@@ -40,9 +41,21 @@ builder.Services
     })
     .AddJsonOptions(options =>
     {
+        // Propiedades en camelCase (Nombre -> nombre, CreatedAt -> createdAt), como en NestJS.
+        // Es el valor por defecto de ASP.NET, pero se deja explicito porque es parte del contrato.
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+
         // No exponer al cliente el detalle interno del error de lectura del JSON
         options.AllowInputFormatterExceptionMessages = false;
     });
+
+// CORS: los origenes de Vue (5173) e Ionic (8100, y los de Capacitor en el celular)
+// salen de appsettings.json, igual que CORS_ORIGIN en el .env de NestJS
+var origenesCors = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
+    .WithOrigins(origenesCors)
+    .AllowAnyHeader()
+    .AllowAnyMethod()));
 
 // Documento OpenAPI en /openapi/v1.json (solo en desarrollo)
 builder.Services.AddOpenApi();
@@ -69,6 +82,8 @@ if (app.Environment.IsDevelopment())
 }
 
 // Sin UseHttpsRedirection: Vue e Ionic llaman a la API por http://localhost:5080
+app.UseCors();
+
 app.UseAuthorization();
 
 app.MapControllers();
