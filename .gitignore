@@ -15,6 +15,13 @@ build/
 # Databases
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
+
+# .NET
+bin/
+obj/
+*.user
 
 # Logs
 *.log
