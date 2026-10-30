@@ -20,7 +20,29 @@ builder.Services.AddScoped<IMoviesService, MoviesService>();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers(options =>
+    {
+        // Sin esto, un JSON mal formado agrega ademas "The dto field is required."
+        options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+
+        // Mensajes en espanol cuando un parametro no se puede convertir (?page=abc, /movies/abc)
+        var mensajes = options.ModelBindingMessageProvider;
+        mensajes.SetAttemptedValueIsInvalidAccessor((valor, campo) => $"El valor '{valor}' no es valido para {campo.ToLowerInvariant()}");
+        mensajes.SetNonPropertyAttemptedValueIsInvalidAccessor(valor => $"El valor '{valor}' no es valido, se esperaba un numero");
+        mensajes.SetValueMustBeANumberAccessor(campo => $"{campo.ToLowerInvariant()} debe ser un numero");
+        mensajes.SetMissingRequestBodyRequiredValueAccessor(() => "El cuerpo de la peticion es obligatorio");
+    })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // 400 con la forma de NestJS: { message: [...], error: "Bad Request", statusCode: 400 }
+        options.InvalidModelStateResponseFactory = ValidationErrorFactory.Crear;
+    })
+    .AddJsonOptions(options =>
+    {
+        // No exponer al cliente el detalle interno del error de lectura del JSON
+        options.AllowInputFormatterExceptionMessages = false;
+    });
 
 // Documento OpenAPI en /openapi/v1.json (solo en desarrollo)
 builder.Services.AddOpenApi();
@@ -37,6 +59,9 @@ using (var scope = app.Services.CreateScope())
 // --- Pipeline HTTP ---
 
 app.UseExceptionHandler();
+
+// Rutas que no existen y otros errores sin cuerpo: { message, error, statusCode }
+app.UseStatusCodePages(StatusCodeErrorWriter.Escribir);
 
 if (app.Environment.IsDevelopment())
 {
