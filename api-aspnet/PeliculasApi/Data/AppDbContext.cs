@@ -11,6 +11,7 @@ namespace PeliculasApi.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Movie> Movies => Set<Movie>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -25,6 +26,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             movie.Property(m => m.Nombre).IsRequired();
             movie.Property(m => m.Imagen).IsRequired();
+        });
+
+        modelBuilder.Entity<User>(user =>
+        {
+            user.Property(u => u.Nombre).IsRequired();
+            user.Property(u => u.Email).IsRequired();
+            user.Property(u => u.Password).IsRequired();
+
+            // Igual que email @unique en Prisma: dos usuarios no pueden tener el mismo correo
+            user.HasIndex(u => u.Email).IsUnique();
         });
     }
 
@@ -58,6 +69,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.UpdatedAt = ahora;
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<User>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.CreatedAt = ahora;
             }
         }
     }
