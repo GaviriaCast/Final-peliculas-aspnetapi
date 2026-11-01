@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 using PeliculasApi.Data;
 using PeliculasApi.Errors;
+using PeliculasApi.OpenApi;
 using PeliculasApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -116,8 +118,13 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
-// Documento OpenAPI en /openapi/v1.json (solo en desarrollo)
-builder.Services.AddOpenApi();
+// Documento OpenAPI en /openapi/v1.json (solo en desarrollo), con el esquema Bearer
+// para que Scalar permita probar los endpoints protegidos con el token
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer(BearerSecurityTransformer.TransformDocument);
+    options.AddOperationTransformer(BearerSecurityTransformer.TransformOperation);
+});
 
 var app = builder.Build();
 
@@ -138,6 +145,11 @@ app.UseStatusCodePages(StatusCodeErrorWriter.Escribir);
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
+    // Interfaz interactiva en http://localhost:5080/scalar
+    app.MapScalarApiReference(options => options
+        .WithTitle("API de Peliculas")
+        .AddPreferredSecuritySchemes(BearerSecurityTransformer.SchemeName));
 }
 
 // Sin UseHttpsRedirection: Vue e Ionic llaman a la API por http://localhost:5080
