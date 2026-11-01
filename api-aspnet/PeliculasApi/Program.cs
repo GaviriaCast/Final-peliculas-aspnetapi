@@ -1,5 +1,8 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using PeliculasApi.Data;
 using PeliculasApi.Errors;
 using PeliculasApi.Services;
@@ -16,6 +19,62 @@ builder.Services.AddDbContext<AppDbContext>(options => options
 
 // Servicios de la aplicacion (inyeccion de dependencias). Scoped = una instancia por peticion.
 builder.Services.AddScoped<IMoviesService, MoviesService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+// JWT: secreto (user-secrets) y duracion (appsettings.json), igual que JWT_SECRET y JWT_EXPIRES_IN
+var jwtOptions = JwtOptions.Load(builder.Configuration);
+builder.Services.AddSingleton(jwtOptions);
+
+// Autenticacion JWT Bearer: lee "Authorization: Bearer <token>", verifica la firma y la expiracion.
+// Equivale a JwtStrategy + JwtAuthGuard de NestJS.
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Sin esto ASP.NET renombra "sub" a ClaimTypes.NameIdentifier y "email" a ClaimTypes.Email
+        options.MapInboundClaims = false;
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = jwtOptions.SigningKey(),
+            ValidateLifetime = true,
+            // NestJS no valida emisor ni audiencia, y no da margen extra a la expiracion
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ClockSkew = TimeSpan.Zero,
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            // Como validate() en JwtStrategy: una firma valida no basta si el usuario ya no existe
+            OnTokenValidated = async context =>
+            {
+                var sub = context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+
+                if (!int.TryParse(sub, out var userId) || !await db.Users.AnyAsync(u => u.Id == userId))
+                {
+                    context.HttpContext.Items["AuthError"] = "El usuario del token ya no existe";
+                    context.Fail("El usuario del token ya no existe");
+                }
+            },
+
+            // 401 con la forma { message, error, statusCode } cuando hay un mensaje propio.
+            // Los demas 401 (sin token, vencido o alterado) los completa StatusCodeErrorWriter.
+            OnChallenge = async context =>
+            {
+                if (context.HttpContext.Items["AuthError"] is string mensaje)
+                {
+                    context.HandleResponse();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    await context.Response.WriteAsJsonAsync(
+                        ErrorResponse.Create(StatusCodes.Status401Unauthorized, mensaje));
+                }
+            },
+        };
+    });
+builder.Services.AddAuthorization();
 
 // Errores con la forma de NestJS: { message, error, statusCode }
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -82,8 +141,11 @@ if (app.Environment.IsDevelopment())
 }
 
 // Sin UseHttpsRedirection: Vue e Ionic llaman a la API por http://localhost:5080
+// CORS va antes de la autenticacion: asi un 401 tambien lleva las cabeceras de CORS
+// y el cliente puede leerlo (si no, el navegador lo esconde como "error de red")
 app.UseCors();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
