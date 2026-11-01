@@ -4,29 +4,57 @@ using PeliculasApi.Models;
 namespace PeliculasApi.Data;
 
 /// <summary>
-/// Datos de ejemplo: las mismas 12 peliculas de backend/prisma/seed.ts.
+/// Datos de ejemplo: las mismas 12 peliculas y el usuario demo de backend/prisma/seed.ts.
 /// EF Core lo ejecuta al aplicar las migraciones (UseSeeding / UseAsyncSeeding en Program.cs)
-/// y solo inserta si la tabla esta vacia, para no duplicar datos en cada arranque.
+/// y solo inserta lo que falte, para no duplicar datos en cada arranque.
 /// </summary>
 public static class SeedData
 {
+    // Usuario de prueba, el mismo del seed de NestJS
+    private const string DemoEmail = "demo@peliculas.com";
+    private const string DemoPassword = "demo1234";
+
     public static void Seed(DbContext context, bool _)
     {
         var movies = context.Set<Movie>();
-        if (movies.Any()) return;
+        if (!movies.Any())
+        {
+            movies.AddRange(Peliculas());
+        }
 
-        movies.AddRange(Peliculas());
+        var users = context.Set<User>();
+        if (!users.Any(u => u.Email == DemoEmail))
+        {
+            users.Add(UsuarioDemo());
+        }
+
         context.SaveChanges();
     }
 
     public static async Task SeedAsync(DbContext context, bool _, CancellationToken cancellationToken)
     {
         var movies = context.Set<Movie>();
-        if (await movies.AnyAsync(cancellationToken)) return;
+        if (!await movies.AnyAsync(cancellationToken))
+        {
+            movies.AddRange(Peliculas());
+        }
 
-        movies.AddRange(Peliculas());
+        var users = context.Set<User>();
+        if (!await users.AnyAsync(u => u.Email == DemoEmail, cancellationToken))
+        {
+            users.Add(UsuarioDemo());
+        }
+
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    // La contrasena se guarda como hash BCrypt de 10 rondas, igual que en el registro
+    private static User UsuarioDemo() => new()
+    {
+        Nombre = "Usuario Demo",
+        Email = DemoEmail,
+        Password = BCrypt.Net.BCrypt.HashPassword(DemoPassword, 10),
+    };
 
     private static List<Movie> Peliculas() =>
     [

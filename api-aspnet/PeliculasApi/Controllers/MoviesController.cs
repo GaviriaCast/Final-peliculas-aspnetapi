@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PeliculasApi.Dtos.Movies;
 using PeliculasApi.Services;
@@ -23,8 +24,9 @@ public class MoviesController(IMoviesService moviesService) : ControllerBase
     public async Task<ActionResult<MovieDto>> FindOne(int id) =>
         await moviesService.FindOneAsync(id);
 
-    // --- Endpoints de escritura (se protegen con [Authorize] en la parte de autenticacion) ---
+    // --- Endpoints de escritura: exigen JWT, igual que @UseGuards(JwtAuthGuard) ---
 
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<MovieDto>> Create(CreateMovieDto dto)
     {
@@ -32,10 +34,12 @@ public class MoviesController(IMoviesService moviesService) : ControllerBase
         return CreatedAtAction(nameof(FindOne), new { id = movie.Id }, movie);
     }
 
+    [Authorize]
     [HttpPatch("{id}")]
     public async Task<ActionResult<MovieDto>> Update(int id, UpdateMovieDto dto) =>
         await moviesService.UpdateAsync(id, dto);
 
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<ActionResult<DeleteMovieResponse>> Remove(int id) =>
         await moviesService.RemoveAsync(id);
