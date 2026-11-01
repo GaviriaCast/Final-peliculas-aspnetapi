@@ -1,5 +1,8 @@
 @baseUrl = http://localhost:5080/api
 
+# Token del usuario demo: primero ejecutar "Login (200)" en la seccion de autenticacion
+@token = {{login.response.body.$.access_token}}
+
 ### Listado (pagina 1, 8 por pagina por defecto)
 GET {{baseUrl}}/movies
 Accept: application/json
@@ -19,6 +22,7 @@ Accept: application/json
 ### Crear (201)
 POST {{baseUrl}}/movies
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "nombre": "Dune: Parte Dos",
@@ -32,6 +36,7 @@ Content-Type: application/json
 ### Crear con datos invalidos (400)
 POST {{baseUrl}}/movies
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "imagen": "no-es-una-url",
@@ -41,6 +46,7 @@ Content-Type: application/json
 ### Editar solo algunos campos (200)
 PATCH {{baseUrl}}/movies/1
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "genero": "Epica"
@@ -49,6 +55,7 @@ Content-Type: application/json
 ### Editar limpiando un campo opcional con null (asi lo hace Ionic)
 PATCH {{baseUrl}}/movies/1
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "director": null
@@ -56,3 +63,70 @@ Content-Type: application/json
 
 ### Eliminar (200)
 DELETE {{baseUrl}}/movies/13
+Authorization: Bearer {{token}}
+
+### ===================== Autenticacion =====================
+
+### Registro (201) - cambiar el correo si ya existe
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "nombre": "Ana Perez",
+  "email": "ana@correo.com",
+  "password": "secreto123"
+}
+
+### Registro con correo repetido (409)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "nombre": "Usuario Demo",
+  "email": "demo@peliculas.com",
+  "password": "demo1234"
+}
+
+### Registro con datos invalidos (400)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "no-es-correo",
+  "password": "123"
+}
+
+### Login (200) - guarda el token en la variable @token
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@peliculas.com",
+  "password": "demo1234"
+}
+
+### Login con contrasena incorrecta (401)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@peliculas.com",
+  "password": "otra-clave"
+}
+
+### Usuario actual con token (200)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+
+### Usuario actual sin token (401)
+GET {{baseUrl}}/auth/me
+
+### Crear pelicula sin token (401)
+POST {{baseUrl}}/movies
+Content-Type: application/json
+
+{
+  "nombre": "Sin token",
+  "imagen": "https://ejemplo.com/poster.jpg"
+}
