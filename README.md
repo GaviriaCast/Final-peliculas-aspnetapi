@@ -1,174 +1,190 @@
-# 🎬 Catálogo de Películas — Talleres #1 y #2
+# 🎬 Catálogo de Películas — Proyecto Final
 
-CRUD completo de películas con **NestJS + Prisma 7 + SQLite** en el backend, **Vue 3 + Vite** en el frontend web y **Ionic Vue + Capacitor** en el cliente móvil, con autenticación por **JWT**.
+API REST en **ASP.NET Core 10 + Entity Framework Core + SQLite** que reemplaza el backend de NestJS de los talleres, sirviendo **los mismos endpoints** con autenticación **JWT**. La aplicación web de Vue (Taller #1) y la app móvil de Ionic (Taller #2) funcionan contra ella **sin cambios de lógica**: solo se cambia la URL base con la variable de entorno `VITE_API_URL`.
 
-| Proyecto | Carpeta | Stack | Puerto |
+**Integrantes:** Gerónimo Gaviria y Daniel David León López.
+
+## ¿Por qué cuatro carpetas?
+
+| Carpeta | Qué es | Origen | Puerto |
 | --- | --- | --- | --- |
-| API REST | [`backend/`](backend) | NestJS 12, Prisma 7, SQLite, Passport JWT | `3000` |
-| Interfaz web | [`frontend/`](frontend) | Vue 3, Vite, Vue Router, Pinia, Axios | `5173` |
-| App móvil (Taller #2) | [`mobile/`](mobile) | Ionic Vue, Capacitor, Pinia, Axios | `8100` |
+| [`api-aspnet/`](api-aspnet) | ⭐ **La API nueva en ASP.NET Core** | Proyecto Final | `5080` |
+| [`backend/`](backend) | La API original en NestJS + Prisma (referencia del contrato) | Taller #1 | `3000` |
+| [`frontend/`](frontend) | Cliente web en Vue 3 + Vite | Taller #1 | `5173` |
+| [`mobile/`](mobile) | Cliente móvil en Ionic Vue + Capacitor | Taller #2 | `8100` |
+
+Para el proyecto final no se modificó nada en `backend/`, `frontend/` ni `mobile/`: todo el trabajo está en `api-aspnet/`.
 
 ---
 
 ## Requisitos
 
-- Node.js 20 o superior (se probó con 22)
-- npm 10 o superior
+- **.NET SDK 10** ([instalador oficial](https://dotnet.microsoft.com/download) o en macOS `brew install dotnet`)
+- **Node.js 20** o superior y npm
+- Git
 
-> ⚠️ **Importante:** clona el repositorio en una ruta **sin el carácter `#`**. Vite (el bundler de Vue) falla si alguna carpeta de la ruta contiene `#`.
+> ⚠️ Clona el repositorio en una ruta **sin el carácter `#`**: Vite falla si alguna carpeta de la ruta lo contiene.
 
 ---
 
-## 1. Backend (API de NestJS)
+## Cómo arrancar
+
+### 1. API de ASP.NET Core
 
 ```bash
-cd backend
-npm install            # tambien genera el cliente de Prisma (postinstall)
-cp .env.example .env
-npx prisma generate    # por si el postinstall no corrio
-npx prisma migrate dev # crea dev.db y aplica las migraciones
-npm run prisma:seed    # carga 12 peliculas y el usuario de prueba
-npm run start:dev
+cd api-aspnet
+dotnet tool restore                 # restaura dotnet-ef (versión fijada en dotnet-tools.json)
+cd PeliculasApi
+dotnet user-secrets set "Jwt:Secret" "un-secreto-largo-de-al-menos-32-caracteres"
+dotnet run
 ```
 
-La API queda en **http://localhost:3000/api**.
+- La API queda en **http://localhost:5080/api**.
+- La primera vez crea `peliculas.db`, aplica las migraciones y carga **12 películas** y el **usuario demo**.
+- El secreto del JWT **no está en el repositorio**: cada persona lo configura una vez con `dotnet user-secrets`. Debe tener **al menos 32 caracteres** (HS256 lo exige). Si falta, la API no arranca y muestra el comando para configurarlo.
 
-El seed crea 12 películas y un usuario de prueba:
+### 2. Cliente web (Vue) contra la nueva API
+
+```bash
+cd frontend
+npm install
+VITE_API_URL=http://localhost:5080/api npm run dev
+```
+
+Abre **http://localhost:5173**. También puedes poner `VITE_API_URL=http://localhost:5080/api` en `frontend/.env`.
+
+### 3. Cliente móvil (Ionic) contra la nueva API
+
+```bash
+cd mobile
+npm install --legacy-peer-deps
+VITE_API_URL=http://localhost:5080/api npm run dev -- --port 8100
+```
+
+Abre **http://localhost:8100**.
+
+> `--legacy-peer-deps` es necesario porque `@capacitor/android` 8.6 pide `@capacitor/core` 8.6 y el proyecto usa 8.5.2. No se cambió `mobile/package.json` para respetar el taller.
+
+En **Windows (PowerShell)**, la variable se define antes del comando:
+
+```powershell
+$env:VITE_API_URL="http://localhost:5080/api"; npm run dev
+```
+
+---
+
+## Documentación interactiva (Scalar)
+
+Con la API corriendo en desarrollo:
+
+- **Scalar:** http://localhost:5080/scalar
+- **Documento OpenAPI:** http://localhost:5080/openapi/v1.json
+
+Para probar un endpoint protegido:
+
+1. En Scalar, abre `POST /api/auth/login` y envía el usuario demo.
+2. Copia el `access_token` de la respuesta.
+3. Pégalo en **Authentication → Bearer Token**.
+4. Prueba `GET /api/auth/me`, o crea, edita o elimina una película. Los endpoints protegidos aparecen con candado.
+
+### Usuario demo
 
 | Correo | Contraseña |
 | --- | --- |
 | `demo@peliculas.com` | `demo1234` |
 
-### Variables de entorno (`backend/.env`)
-
-| Variable | Descripción | Ejemplo |
-| --- | --- | --- |
-| `DATABASE_URL` | Ruta del archivo SQLite | `file:./dev.db` |
-| `JWT_SECRET` | Clave con la que se firma el token | `un-secreto-largo-y-aleatorio` |
-| `JWT_EXPIRES_IN` | Vigencia del token | `1d` |
-| `PORT` | Puerto de la API | `3000` |
-| `CORS_ORIGIN` | Origen permitido del frontend | `http://localhost:5173` |
-
-### Scripts útiles
-
-| Comando | Qué hace |
-| --- | --- |
-| `npm run start:dev` | Levanta la API con recarga automática |
-| `npm run build` | Compila a `dist/` |
-| `npm test` | Pruebas unitarias |
-| `npm run test:e2e` | Pruebas end-to-end |
-| `npm run prisma:migrate` | Crea y aplica una migración |
-| `npm run prisma:seed` | Carga los datos de ejemplo |
-| `npm run prisma:studio` | Abre Prisma Studio para ver la base |
+Las peticiones de prueba también están en [`api-aspnet/PeliculasApi/PeliculasApi.http`](api-aspnet/PeliculasApi/PeliculasApi.http), para la extensión REST Client.
 
 ---
 
-## 2. Frontend (Vue)
+## Endpoints
 
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
-
-La interfaz queda en **http://localhost:5173** y consume la API mediante `VITE_API_URL`.
-
----
-
-## 3. App móvil (Ionic)
-
-Antes de levantarla, agrega el puerto de Ionic a `CORS_ORIGIN` en `backend/.env` y reinicia la API:
-
-```env
-CORS_ORIGIN="http://localhost:5173,http://localhost:8100,capacitor://localhost,http://localhost"
-```
-
-```bash
-cd mobile
-npm install
-cp .env.example .env   # VITE_API_URL=http://localhost:3000/api
-ionic serve            # o: npm run dev -- --port 8100
-```
-
-La app queda en **http://localhost:8100**. Los pasos para apuntarla a otra API y para compilarla en Android están en [`mobile/README.md`](mobile/README.md).
-
----
-
-## Endpoints de la API
-
-Base: `http://localhost:3000/api`
+Base: `http://localhost:5080/api`. Son los mismos de NestJS, con los mismos códigos de estado y la misma forma de JSON (propiedades en `camelCase`, salvo `access_token`).
 
 ### Autenticación
 
-| Método | Ruta | Protegido | Descripción |
-| --- | --- | --- | --- |
-| `POST` | `/auth/register` | No | Registra un usuario (guarda la contraseña hasheada con bcrypt) |
-| `POST` | `/auth/login` | No | Valida credenciales y devuelve un JWT firmado |
-| `GET` | `/auth/me` | Sí | Devuelve el usuario dueño del token |
+| Método | Ruta | Token | Éxito | Errores |
+| --- | --- | --- | --- | --- |
+| `POST` | `/auth/register` | No | `201` `{ access_token, user }` | `400` validación, `409` correo ya registrado |
+| `POST` | `/auth/login` | No | `200` `{ access_token, user }` | `400` validación, `401` credenciales inválidas |
+| `GET` | `/auth/me` | **Sí** | `200` `{ id, email, nombre }` | `401` sin token, token vencido o inválido |
 
 ### Películas
 
-| Método | Ruta | Protegido | Descripción |
-| --- | --- | --- | --- |
-| `GET` | `/movies?search=&page=&limit=` | No | Listado con búsqueda por nombre y paginación |
-| `GET` | `/movies/:id` | No | Detalle de una película |
-| `POST` | `/movies` | Sí | Crea una película |
-| `PATCH` | `/movies/:id` | Sí | Edita una película |
-| `DELETE` | `/movies/:id` | Sí | Elimina una película |
+| Método | Ruta | Token | Éxito | Errores |
+| --- | --- | --- | --- | --- |
+| `GET` | `/movies?search=&page=&limit=` | No | `200` `{ data, meta }` | `400` parámetros inválidos |
+| `GET` | `/movies/:id` | No | `200` película | `404` no existe |
+| `POST` | `/movies` | **Sí** | `201` película | `400`, `401` |
+| `PATCH` | `/movies/:id` | **Sí** | `200` película | `400`, `401`, `404` |
+| `DELETE` | `/movies/:id` | **Sí** | `200` `{ id, eliminado: true }` | `401`, `404` |
 
-Los endpoints protegidos exigen el header:
+Los endpoints con token exigen el header `Authorization: Bearer <access_token>`. Los errores tienen la misma forma que en NestJS:
 
+```json
+{ "message": "Credenciales invalidas", "error": "Unauthorized", "statusCode": 401 }
 ```
-Authorization: Bearer <token>
-```
 
-El contrato completo (cuerpos de petición, respuestas y códigos de error) está en [`docs/API.md`](docs/API.md).
+El contrato detallado está en [`docs/API.md`](docs/API.md).
 
 ---
 
-## Modelo de datos
+## Estructura de `api-aspnet/`
 
-```prisma
-model Movie {
-  id        Int      @id @default(autoincrement())
-  nombre    String
-  imagen    String
-  director  String?
-  anio      Int?
-  genero    String?
-  sinopsis  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model User {
-  id        Int      @id @default(autoincrement())
-  nombre    String
-  email     String   @unique
-  password  String   // hash bcrypt, nunca la contraseña en texto plano
-  createdAt DateTime @default(now())
-}
 ```
+api-aspnet/
+├── dotnet-tools.json            # dotnet-ef 10.0.14 como herramienta local
+└── PeliculasApi/
+    ├── Program.cs               # Servicios (EF, DI, JWT, CORS, JSON, OpenAPI) y pipeline HTTP
+    ├── appsettings.json         # Conexión SQLite, orígenes de CORS y duración del JWT
+    ├── Models/                  # Movie y User (las entidades)
+    ├── Data/                    # AppDbContext y SeedData (12 películas + usuario demo)
+    ├── Migrations/              # InitialCreate (Movies) y AddUsers (Users)
+    ├── Dtos/                    # Entrada validada y respuestas (Movies y Auth)
+    ├── Services/                # MoviesService, AuthService y JwtOptions
+    ├── Controllers/             # MoviesController (/api/movies) y AuthController (/api/auth)
+    ├── Errors/                  # Errores con la forma { message, error, statusCode }
+    ├── OpenApi/                 # Esquema Bearer para Scalar
+    └── PeliculasApi.http        # Peticiones de prueba
+```
+
+### Cómo se cumple cada parte
+
+| Parte | Cómo se resolvió |
+| --- | --- |
+| Montaje | `dotnet new webapi --use-controllers`, EF Core con SQLite y migraciones |
+| CRUD | `MoviesController` + `MoviesService` registrado por inyección de dependencias + DTOs con validación |
+| Búsqueda y paginación | `?search=` con `LIKE` (sin distinguir mayúsculas, como Prisma) y `?page=&limit=` con `Skip`/`Take` |
+| CORS | Orígenes de Vue e Ionic en `appsettings.json` (`Cors:Origins`) |
+| Registro | `POST /api/auth/register` guarda la contraseña con **BCrypt de 10 rondas** |
+| Login | `POST /api/auth/login` emite un **JWT HS256** con `sub` y `email`, válido 24 horas |
+| Protección | `[Authorize]` en `POST`, `PATCH` y `DELETE` de películas y en `GET /auth/me` |
+| Integración | Vue e Ionic solo cambian `VITE_API_URL` |
+| OpenAPI | `Microsoft.AspNetCore.OpenApi` + **Scalar** con esquema Bearer |
+
+### Comandos útiles
+
+| Comando (en `api-aspnet/PeliculasApi`) | Qué hace |
+| --- | --- |
+| `dotnet run` | Levanta la API en el puerto 5080 |
+| `dotnet build` | Compila |
+| `dotnet ef migrations add <Nombre>` | Crea una migración |
+| `dotnet ef database update` | Aplica las migraciones |
+| `rm peliculas.db` | Borra la base; al volver a correr se recrea con el seed |
 
 ---
 
-## Estructura del repositorio
+## API original de NestJS (opcional)
 
+Para comparar respuestas con la API de los talleres:
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+npx prisma migrate dev
+npm run prisma:seed
+npm run start:dev
 ```
-.
-├── backend/
-│   ├── prisma/
-│   │   ├── migrations/         # Migraciones versionadas
-│   │   ├── schema.prisma       # Modelos Movie y User
-│   │   └── seed.ts             # Datos de ejemplo
-│   ├── prisma.config.ts        # Configuración de Prisma 7
-│   └── src/
-│       ├── auth/               # Registro, login, JWT y Guard
-│       ├── movies/             # CRUD generado con `nest g resource`
-│       ├── prisma/             # PrismaService (driver adapter SQLite)
-│       └── main.ts
-├── frontend/                   # Aplicación Vue 3
-├── mobile/                     # App Ionic Vue + Capacitor (Taller #2)
-└── docs/API.md                 # Contrato detallado de la API
-```
+
+Queda en **http://localhost:3000/api**, con el mismo usuario demo.
