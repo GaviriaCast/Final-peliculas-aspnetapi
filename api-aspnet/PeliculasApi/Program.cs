@@ -7,6 +7,7 @@ using Scalar.AspNetCore;
 using PeliculasApi.Data;
 using PeliculasApi.Errors;
 using PeliculasApi.OpenApi;
+using PeliculasApi.Repositories;
 using PeliculasApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +21,8 @@ builder.Services.AddDbContext<AppDbContext>(options => options
     .UseAsyncSeeding(SeedData.SeedAsync));
 
 // Servicios de la aplicacion (inyeccion de dependencias). Scoped = una instancia por peticion.
+builder.Services.AddScoped<IMovieRepository, MovieRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IMoviesService, MoviesService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
@@ -53,9 +56,9 @@ builder.Services
             OnTokenValidated = async context =>
             {
                 var sub = context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var users = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
 
-                if (!int.TryParse(sub, out var userId) || !await db.Users.AnyAsync(u => u.Id == userId))
+                if (!int.TryParse(sub, out var userId) || !await users.ExistsAsync(userId))
                 {
                     context.HttpContext.Items["AuthError"] = "El usuario del token ya no existe";
                     context.Fail("El usuario del token ya no existe");

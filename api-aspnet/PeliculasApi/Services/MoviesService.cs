@@ -1,15 +1,15 @@
-using Microsoft.EntityFrameworkCore;
-using PeliculasApi.Data;
 using PeliculasApi.Dtos.Movies;
 using PeliculasApi.Errors;
 using PeliculasApi.Models;
+using PeliculasApi.Repositories;
 
 namespace PeliculasApi.Services;
 
 /// <summary>
 /// Logica del CRUD de peliculas (lo que era MoviesService en NestJS).
+/// No consulta la base de datos directamente: lo hace a traves de IMovieRepository.
 /// </summary>
-public class MoviesService(AppDbContext db) : IMoviesService
+public class MoviesService(IMovieRepository movies) : IMoviesService
 {
     /// <summary>Listado con busqueda por nombre y paginacion.</summary>
     public async Task<PagedResponse<MovieDto>> FindAllAsync(QueryMoviesDto query)
@@ -18,27 +18,10 @@ public class MoviesService(AppDbContext db) : IMoviesService
         var limit = query.Limit ?? QueryMoviesDto.DefaultLimit;
         var search = query.Search?.Trim();
 
-        IQueryable<Movie> movies = db.Movies.AsNoTracking();
-
-        if (!string.IsNullOrEmpty(search))
-        {
-            // LIKE en SQLite no distingue mayusculas para caracteres ASCII, igual que en Prisma.
-            // No se usa Contains porque EF lo traduce a instr(), que si las distingue.
-            var patron = $"%{EscaparLike(search)}%";
-            movies = movies.Where(m => EF.Functions.Like(m.Nombre, patron, "\\"));
-        }
-
-        var total = await movies.CountAsync();
-
         // En long para que una pagina enorme (?page=999999999) no desborde el int
         var skip = (int)Math.Min((long)(page - 1) * limit, int.MaxValue);
 
-        var data = await movies
-            .OrderByDescending(m => m.CreatedAt)
-            .ThenByDescending(m => m.Id)
-            .Skip(skip)
-            .Take(limit)
-            .ToListAsync();
+        var (data, total) = await movies.SearchAsync(search, skip, limit);
 
         var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)limit));
 
@@ -65,8 +48,7 @@ public class MoviesService(AppDbContext db) : IMoviesService
             Sinopsis = dto.Sinopsis,
         };
 
-        db.Movies.Add(movie);
-        await db.SaveChangesAsync();
+        await movies.AddAsync(movie);
 
         return MovieDto.FromEntity(movie);
     }
@@ -83,7 +65,7 @@ public class MoviesService(AppDbContext db) : IMoviesService
         if (dto.Envio(nameof(dto.Genero))) movie.Genero = dto.Genero;
         if (dto.Envio(nameof(dto.Sinopsis))) movie.Sinopsis = dto.Sinopsis;
 
-        await db.SaveChangesAsync();
+        await movies.UpdateAsync(movie);
 
         return MovieDto.FromEntity(movie);
     }
@@ -92,19 +74,13 @@ public class MoviesService(AppDbContext db) : IMoviesService
     {
         var movie = await BuscarAsync(id);
 
-        db.Movies.Remove(movie);
-        await db.SaveChangesAsync();
+        await movies.RemoveAsync(movie);
 
         return new DeleteMovieResponse(id, true);
     }
 
     private async Task<Movie> BuscarAsync(int id) =>
-        await db.Movies.FindAsync(id)
+        await movies.FindByIdAsync(id)
         ?? throw new ApiException(StatusCodes.Status404NotFound, $"No existe la pelicula con id {id}");
 
-    /// <summary>
-    /// Escapa % y _ para que se busquen como texto y no como comodines de LIKE.
-    /// </summary>
-    private static string EscaparLike(string texto) =>
-        texto.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 }
