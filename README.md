@@ -141,7 +141,8 @@ api-aspnet/
     ├── Data/                    # AppDbContext y SeedData (12 películas + usuario demo)
     ├── Migrations/              # InitialCreate (Movies) y AddUsers (Users)
     ├── Dtos/                    # Entrada validada y respuestas (Movies y Auth)
-    ├── Services/                # MoviesService, AuthService y JwtOptions
+    ├── Services/                # MoviesService, AuthService y JwtOptions (logica de negocio)
+    ├── Repositories/            # MovieRepository y UserRepository (consultas con Entity Framework)
     ├── Controllers/             # MoviesController (/api/movies) y AuthController (/api/auth)
     ├── Errors/                  # Errores con la forma { message, error, statusCode }
     ├── OpenApi/                 # Esquema Bearer para Scalar
@@ -153,7 +154,8 @@ api-aspnet/
 | Parte | Cómo se resolvió |
 | --- | --- |
 | Montaje | `dotnet new webapi --use-controllers`, EF Core con SQLite y migraciones |
-| CRUD | `MoviesController` + `MoviesService` registrado por inyección de dependencias + DTOs con validación |
+| CRUD | `MoviesController` → `MoviesService` → `MovieRepository` → `Movie`, cada capa por interfaz e inyección de dependencias, + DTOs con validación |
+| Patrones | **Servicio** (lógica de negocio), **Repositorio** (solo él usa Entity Framework), **Inyección de dependencias** por interfaz y **DTO** (el modelo nunca sale tal cual) |
 | Búsqueda y paginación | `?search=` con `LIKE` (sin distinguir mayúsculas, como Prisma) y `?page=&limit=` con `Skip`/`Take` |
 | CORS | Orígenes de Vue e Ionic en `appsettings.json` (`Cors:Origins`) |
 | Registro | `POST /api/auth/register` guarda la contraseña con **BCrypt de 10 rondas** |
