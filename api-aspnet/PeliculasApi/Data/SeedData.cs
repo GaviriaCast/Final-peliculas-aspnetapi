@@ -160,7 +160,7 @@ public static class SeedData
         new()
         {
             Nombre = "El Laberinto del Fauno",
-            Imagen = "https://image.tmdb.org/t/p/w500/67roafcTPUL8lm3ooEQfPVamvzj.jpg",
+            Imagen = "https://image.tmdb.org/t/p/w500/z7xXihu5wHuSMWymq5VAulPVuvg.jpg",
             Director = "Guillermo del Toro",
             Anio = 2006,
             Genero = "Fantasia",
